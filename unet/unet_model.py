@@ -9,7 +9,7 @@ class UNet(nn.Module):
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear
-
+          
         self.inc = (DoubleConv(n_channels, 64))  #第一次doubleconv
         self.down1 = (Down(64, 128))      
         self.down2 = (Down(128, 256))
@@ -23,16 +23,27 @@ class UNet(nn.Module):
         self.outc = (OutConv(64, n_classes))
 
     def forward(self, x):
+        #input：1*1*256*256
         x1 = self.inc(x)
+        #1*64*256*256
         x2 = self.down1(x1)
+        #1*128*128*128
         x3 = self.down2(x2)
+        #1*256*64*64
         x4 = self.down3(x3)
+        #1*512*32*32
         x5 = self.down4(x4)
+        #1*1024*16*16
         x = self.up1(x5, x4)
+        #1*512*32*32
         x = self.up2(x, x3)
+        #1*256*64*64
         x = self.up3(x, x2)
+        #1*128*128*128
         x = self.up4(x, x1)
+        #1*64*256*256
         logits = self.outc(x)
+        #1*3*256*256
         return logits
 
     def use_checkpointing(self):
@@ -46,3 +57,49 @@ class UNet(nn.Module):
         self.up3 = torch.utils.checkpoint(self.up3)
         self.up4 = torch.utils.checkpoint(self.up4)
         self.outc = torch.utils.checkpoint(self.outc)
+        
+        
+#################################################################################       
+        
+class UNet_3D(nn.Module):
+    def __init__(self, n_channels, n_classes, trilinear=False):
+        super(UNet_3D, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.trilinear = trilinear
+          
+        self.inc = (DoubleConv_3D(n_channels, 64))  #第一次doubleconv
+        self.down1 = (Down_3D(64, 128))      
+        self.down2 = (Down_3D(128, 256))
+        self.down3 = (Down_3D(256, 512))
+        factor = 2 if trilinear else 1
+        self.down4 = (Down_3D(512, 1024 // factor))
+        self.up1 = (Up_3D(1024, 512 // factor, trilinear))
+        self.up2 = (Up_3D(512, 256 // factor, trilinear))
+        self.up3 = (Up_3D(256, 128 // factor, trilinear))
+        self.up4 = (Up_3D(128, 64, trilinear))
+        self.outc = (OutConv_3D(64, n_classes))
+
+    def forward(self, x):
+        #input：1*1*256*256
+        x1 = self.inc(x)
+        #1*64*256*256
+        x2 = self.down1(x1)
+        #1*128*128*128
+        x3 = self.down2(x2)
+        #1*256*64*64
+        x4 = self.down3(x3)
+        #1*512*32*32
+        x5 = self.down4(x4)
+        #1*1024*16*16
+        x = self.up1(x5, x4)
+        #1*512*32*32
+        x = self.up2(x, x3)
+        #1*256*64*64
+        x = self.up3(x, x2)
+        #1*128*128*128
+        x = self.up4(x, x1)
+        #1*64*256*256
+        logits = self.outc(x)
+        #1*3*256*256
+        return logits
